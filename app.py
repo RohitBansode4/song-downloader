@@ -106,27 +106,21 @@ def process_downloads(job_id, urls):
                 jobs[job_id]["videos"][vid]["status"] = "processing"
 
     ydl_opts = {
-        # "format": "bestaudio/best",
-        # "quiet": True,
-        # "noplaylist": True,
-        # "progress_hooks": [hook],
-        # "extractor_args": {
-        #     "youtube": {"player_client": ["android"]}
-        # },
-        # "postprocessors": [
-        #     {
-        #         "key": "FFmpegExtractAudio",
-        #         "preferredcodec": "mp3",
-        #         "preferredquality": "320",
-        #     }
-        # ],
-        # "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
-        "format": "bestaudio/best",          # Download the highest quality audio stream
-        "quiet": True,                        # Suppress console output
-        "noplaylist": True,                   # Only download a single video at a time
-        "progress_hooks": [hook],             # Track download progress
-        # No need for extractor_args; default YouTube client works for desktops
-        "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"), 
+        "format": "bestaudio/best",
+        "quiet": True,
+        "noplaylist": True,
+        "progress_hooks": [hook],
+        "extractor_args": {
+            "youtube": {"player_client": ["android"]}
+        },
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "320",
+            }
+        ],
+        "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
     }
 
     jobs[job_id]["status"] = "downloading"
