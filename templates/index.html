@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Audio Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+        }
+        .container {
+            width: 900px;
+            background: #020617;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        h1 {
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 14px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .danger {
+            background: #dc2626;
+        }
+        ul {
+            margin-top: 20px;
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 20px;
+        }
+        .link-item {
+            background: #020617;
+            border: 1px solid #1e293b;
+            padding: 12px;
+            border-radius: 10px;
+        }
+        iframe {
+            width: 100%;
+            height: 300px;
+            margin-top: 8px;
+            border-radius: 8px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .top-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .progress {
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar {
+            background: #22c55e;
+            padding: 6px;
+            color: black;
+            font-weight: bold;
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎵 YouTube Audio Downloader</h1>
+
+    <input id="urlInput" placeholder="Paste YouTube link">
+    <div class="top-actions">
+        <button onclick="addLink()">Add Link</button>
+        <button onclick="downloadAll()">Download All (ZIP)</button>
+    </div>
+
+    <ul id="linkList"></ul>
+</div>
+
+<script>
+const links = [];
+let progressData = {};
+
+function extractVideoId(url) {
+    try {
+        const u = new URL(url);
+        if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
+        if (u.searchParams.has("v")) return u.searchParams.get("v");
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function addLink() {
+    const input = document.getElementById("urlInput");
+    if (!input.value) return;
+
+    links.push(input.value);
+    input.value = "";
+    renderList();
+}
+
+function removeLink(index) {
+    links.splice(index, 1);
+    renderList();
+}
+
+function renderList() {
+    const list = document.getElementById("linkList");
+    list.innerHTML = "";
+
+    links.forEach((link, index) => {
+        const videoId = extractVideoId(link);
+        const progress = progressData[videoId] || 0;
+
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <div class="link-item">
+                <strong>${link}</strong>
+
+                ${videoId ? `
+                <iframe
+                    src="https://www.youtube.com/embed/${videoId}"
+                    allowfullscreen>
+                </iframe>` : ``}
+
+                <div class="progress">
+                    <div class="progress-bar" style="width:${progress}%">
+                        ${progress ? progress + "%" : ""}
+                    </div>
+                </div>
+
+                <div class="actions">
+                    
+
+
+                    <button class="danger" onclick="removeLink(${index})">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+async function downloadAll() {
+    if (!links.length) return;
+
+    const res = await fetch("/download-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: links })
+    });
+
+    const { job_id } = await res.json();
+
+    const evt = new EventSource(`/progress/${job_id}`);
+
+    evt.onmessage = e => {
+        const data = JSON.parse(e.data);
+
+        Object.values(data.videos || {}).forEach(v => {
+            if (!v.total) return;
+            const percent = Math.floor((v.downloaded / v.total) * 100);
+            progressData[v.info_id || v.id || extractVideoId(v.webpage_url)] = percent;
+        });
+
+        renderList();
+
+        if (data.status === "done") {
+            evt.close();
+            window.location = `/result/${job_id}`;
+        }
+    };
+}
+</script>
+
+</body>
+</html>
